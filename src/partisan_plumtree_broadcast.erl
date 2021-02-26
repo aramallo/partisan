@@ -401,9 +401,11 @@ handle_graft({error, Reason}, _MessageId, Mod, _Round, _Root, _From, State) ->
     lager:error("unable to graft message from ~p. reason: ~p", [Mod, Reason]),
     State.
 
-neighbors_down(Removed, State=#state{common_eagers=CommonEagers, eager_sets=EagerSets,
+neighbors_down(Removed, State=#state{all_members=AllMembers,
+                                     common_eagers=CommonEagers, eager_sets=EagerSets,
                                      common_lazys=CommonLazys, lazy_sets=LazySets,
                                      outstanding=Outstanding}) ->
+    NewAll = ordsets:subtract(AllMembers, Removed),
     NewCommonEagers = ordsets:subtract(CommonEagers, Removed),
     NewCommonLazys  = ordsets:subtract(CommonLazys, Removed),
     %% TODO: once we have delayed grafting need to remove timers
@@ -416,7 +418,8 @@ neighbors_down(Removed, State=#state{common_eagers=CommonEagers, eager_sets=Eage
                                           orddict:erase(RPeer, OutstandingAcc)
                                   end,
                                   Outstanding, Removed),
-    State#state{common_eagers=NewCommonEagers,
+    State#state{all_members = NewAll,
+                common_eagers=NewCommonEagers,
                 common_lazys=NewCommonLazys,
                 eager_sets=NewEagerSets,
                 lazy_sets=NewLazySets,
