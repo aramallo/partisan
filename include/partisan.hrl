@@ -4,6 +4,7 @@
 -define(PEER_SERVICE_SERVER, partisan_peer_service_server).
 -define(FANOUT, 5).
 -define(CACHE, partisan_connection_cache).
+-define(PLUMTREE_OUTSTANDING, partisan_plumtree_broadcast).
 -define(CONNECTION_JITTER, 1000).
 -define(TRACING, false).
 -define(RELAY_TTL, 5).

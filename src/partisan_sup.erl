@@ -56,23 +56,33 @@ init([]) ->
     CausalLabels = partisan_config:get(causal_labels, []),
 
     CausalBackendFun = fun(Label) ->
-        {partisan_causality_backend, 
-         {partisan_causality_backend, start_link, [Label]}, 
+        {partisan_causality_backend,
+         {partisan_causality_backend, start_link, [Label]},
           permanent, 5000, worker, [partisan_causality_backend]}
     end,
 
     CausalBackends = lists:map(CausalBackendFun, CausalLabels),
 
-    lager:info("Partisan listening on ~p:~p listen_addrs: ~p", 
+    lager:info("Partisan listening on ~p:~p listen_addrs: ~p",
                [partisan_config:get(peer_ip), partisan_config:get(peer_port), partisan_config:get(listen_addrs)]),
 
     %% Open connection pool.
-    PoolSup = {partisan_pool_sup, 
+    PoolSup = {partisan_pool_sup,
                {partisan_pool_sup, start_link, []},
                 permanent, 20000, supervisor, [partisan_pool_sup]},
 
     %% Initialize the connection cache supervised by the supervisor.
     ?CACHE = ets:new(?CACHE, [public, named_table, set, {read_concurrency, true}]),
+
+    %% Initialize the plumtree outstanding messages table
+    %% supervised by the supervisor.
+    %% The table is used by partisan_plumtree_broadcast and maps a nodename()
+    %% to set of outstanding messages. It uses a duplicate_bag to quickly
+    %% delete all messages for a nodename.
+    ?PLUMTREE_OUTSTANDING = ets:new(
+        ?PLUMTREE_OUTSTANDING,
+        [public, named_table, duplicate_bag, {read_concurrency, true}]
+    ),
 
     RestartStrategy = {one_for_one, 10, 10},
     {ok, {RestartStrategy, Children ++ CausalBackends ++ [PoolSup]}}.
