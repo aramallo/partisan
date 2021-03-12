@@ -34,7 +34,7 @@ update(Connections) ->
                       true = ets:insert(?CACHE, [{Name, V}])
               end, [], Connections).
 
-dispatch({forward_message, Name, Channel, _Clock, PartitionKey, ServerRef, Message, _Options}) ->
+dispatch({forward_message, Node, Channel, _Clock, PartitionKey, ServerRef, Message, _Options}) ->
     case partisan_config:get(tracing, ?TRACING) of
         true ->
             lager:info("Dispatching message: ~p", [Message]);
@@ -43,15 +43,16 @@ dispatch({forward_message, Name, Channel, _Clock, PartitionKey, ServerRef, Messa
     end,
 
     %% Find a connection for the remote node, if we have one.
-    case ets:lookup(?CACHE, nodename(Name)) of
+    Nodename = nodename(Node),
+    case ets:lookup(?CACHE, Nodename) of
         [] ->
             %% Trap back to gen_server.
-            lager:info("Connection cache miss for node: ~p", [Name]),
+            lager:info("Connection cache miss for node: ~p", [Node]),
             {error, trap};
-        [{Name, []}] ->
-            lager:info("Connection cache miss for node: ~p", [Name]),
+        [{Nodename, []}] ->
+            lager:info("Connection cache miss for node: ~p", [Node]),
             {error, trap};
-        [{Name, Pids}] ->
+        [{Nodename, Pids}] ->
             Pid = partisan_util:dispatch_pid(PartitionKey, Channel, Pids),
 
             case partisan_config:get(tracing, ?TRACING) of
@@ -71,7 +72,7 @@ dispatch({forward_message, Name, Channel, _Clock, PartitionKey, ServerRef, Messa
             gen_server:cast(Pid, {send_message, {forward_message, ServerRef, Message}})
     end;
 
-dispatch({forward_message, Name, ServerRef, Message, _Options}) ->
+dispatch({forward_message, Node, ServerRef, Message, _Options}) ->
     case partisan_config:get(tracing, ?TRACING) of
         true ->
             lager:info("Dispatching message: ~p", [Message]);
@@ -80,15 +81,16 @@ dispatch({forward_message, Name, ServerRef, Message, _Options}) ->
     end,
 
     %% Find a connection for the remote node, if we have one.
-    case ets:lookup(?CACHE, nodename(Name)) of
+    Nodename = nodename(Node),
+    case ets:lookup(?CACHE, Nodename) of
         [] ->
             %% Trap back to gen_server.
-            lager:info("Connection cache miss for node: ~p", [Name]),
+            lager:info("Connection cache miss for node: ~p", [Node]),
             {error, trap};
-        [{Name, []}] ->
-            lager:info("Connection cache miss for node: ~p", [Name]),
+        [{Nodename, []}] ->
+            lager:info("Connection cache miss for node: ~p", [Node]),
             {error, trap};
-        [{Name, Pids}] ->
+        [{Nodename, Pids}] ->
             Pid = partisan_util:dispatch_pid(Pids),
 
             case partisan_config:get(tracing, ?TRACING) of
@@ -107,6 +109,8 @@ dispatch({forward_message, Name, ServerRef, Message, _Options}) ->
 
             gen_server:cast(Pid, {send_message, {forward_message, ServerRef, Message}})
     end.
+
+
 
 
 %% @private
